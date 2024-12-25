@@ -62,14 +62,14 @@ except ImportError:
 # Attempt to import LangChain items
 try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain_openai.embeddings import OpenAIEmbeddings
+    from langchain_ollama import OllamaEmbeddings
     from langchain_chroma import Chroma
 except ImportError:
     print("Prodify: Product assistant in coding")
     print("(C) TRUKHIN IURII, 2024 yuri@trukhin.com")
     print("Falling back to langchain_community. Consider installing langchain_openai and langchain_chroma.")
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain_community.embeddings import OpenAIEmbeddings
+    from langchain.embeddings import OllamaEmbeddings
     from langchain_community.vectorstores import Chroma
 
 console = Console()
@@ -315,15 +315,7 @@ def main():
     console.print("[bold]Prodify: Product assistant in coding[/bold]", style="green")
     console.print("(C) TRUKHIN IURII, 2024 yuri@trukhin.com", style="dim")
 
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-    if not openai_api_key:
-        console.print("No OPENAI_API_KEY found in environment.", style="bold red")
-        key = getpass.getpass("Please enter your OpenAI API key (sk-...): ").strip()
-        if not key:
-            console.print("No API key provided. Exiting.", style="bold red")
-            sys.exit(1)
-        os.environ["OPENAI_API_KEY"] = key
-
+    
     indexing_in_progress = True
     persist_dir = None
 
@@ -363,9 +355,8 @@ def main():
             style="bold"
         )
 
-        # If you want a cheaper or self-hosted embeddings approach,
-        # replace OpenAIEmbeddings with a local or smaller model.
-        embeddings = OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
+       
+        embeddings = OllamaEmbeddings(model="llama3.2-vision:latest")
         db = Chroma(
             collection_name=index_name,
             persist_directory=persist_dir,

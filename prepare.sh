@@ -23,14 +23,15 @@ pip install --upgrade pip
 # 4) Install the required dependencies for index.py and ask.py.
 #    If any package is missing, add it here.
 pip install \
-    openai \
+    langchain \
     prompt_toolkit \
     tqdm \
     rich \
     tiktoken \
-    langchain_openai \
+    langchain_ollama \
     langchain_chroma \
     langchain_community \
+    ollama \
 
 echo ""
 echo "============================================================"

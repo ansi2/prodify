@@ -26,7 +26,7 @@ import queue
 import threading
 import time
 
-import openai
+from ollama import chat
 
 # prompt_toolkit for the radio dialog
 try:
@@ -58,8 +58,7 @@ except ImportError:
     print("rich is missing. Please install it: pip install rich")
     sys.exit(1)
 
-# Additional error from openai
-from openai import APIError
+
 
 # tiktoken for token counting
 try:
@@ -70,11 +69,11 @@ except ImportError:
 
 # Attempt to import langchain + chroma. Otherwise fallback.
 try:
-    from langchain_openai.embeddings import OpenAIEmbeddings
+    from langchain_ollama import OllamaEmbeddings
     from langchain_chroma import Chroma
 except ImportError:
     print("Falling back to langchain_community.")
-    from langchain_community.embeddings import OpenAIEmbeddings
+    from langchain.embeddings import OllamaEmbeddings
     from langchain_community.vectorstores import Chroma
 
 console = Console()
@@ -216,32 +215,17 @@ class AskWorker(threading.Thread):
 
             user_prompt = f"{system_prefix}{''.join(context_parts)}{suffix}"
 
-            # 3) Call OpenAI
+            # 3) Call Ollama
             delay = INITIAL_DELAY
             answer = None
             for attempt in range(MAX_RETRIES):
                 try:
-                    resp = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
+                    resp = chat(
+                        model="llama3.2-vision:latest",
                         messages=[{"role": "user", "content": user_prompt}],
                     )
-                    answer = resp.choices[0].message.content
+                    answer = resp.message.content
                     break
-                except APIError as e:
-                    # Rate-limit or other issues
-                    if hasattr(e, 'http_status') and e.http_status == 429 and attempt < MAX_RETRIES - 1:
-                        with global_lock:
-                            console.print(
-                                f"Rate limit (429). Waiting {delay:.1f}s "
-                                f"(attempt {attempt+1}/{MAX_RETRIES})...",
-                                style="bold red"
-                            )
-                        time.sleep(delay)
-                        delay *= 2
-                    else:
-                        with global_lock:
-                            console.print(f"OpenAI APIError: {e}", style="bold red")
-                        return
                 except Exception as e:
                     with global_lock:
                         console.print(f"Unexpected error: {e}", style="bold red")
@@ -347,19 +331,7 @@ def radio_with_three_buttons_dialog(title: str, text: str, values, style=None):
 def main():
     console.print("Prodify: Product assistant in coding", style="bold")
     console.print("(C) IURII TRUKHIN, yuri@trukhin.com, 2024\n", style="bold")
-
-    # Check or request OPENAI_API_KEY
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-    if not openai_api_key:
-        console.print("No OPENAI_API_KEY found in the environment.", style="bold red")
-        key = getpass.getpass("Please enter your OpenAI API key (sk-...): ").strip()
-        if not key:
-            console.print("No API key provided. Exiting.", style="bold red")
-            sys.exit(1)
-        os.environ["OPENAI_API_KEY"] = key
-
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-
+   
     base_dir = ".chromadb"
     if not os.path.isdir(base_dir):
         console.print("No indexes found in .chromadb. Exiting.", style="bold red")
@@ -407,7 +379,7 @@ def main():
         if action == "use":
             console.print("Loading index for Q&A...", style="dim")
             try:
-                embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
+                embeddings = OllamaEmbeddings(model="llama3.2-vision:latest")
                 db = Chroma(
                     collection_name=index_choice,
                     embedding_function=embeddings,
